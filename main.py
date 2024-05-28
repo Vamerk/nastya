@@ -3,6 +3,7 @@ from sqlmodel import SQLModel, Session, create_engine, select
 from typing import List
 from datetime import datetime, date
 import uvicorn
+from starlette.middleware.cors import CORSMiddleware
 
 # from routers import datas
 from schemas import *
@@ -25,10 +26,20 @@ def get_session():
 
 
 app = FastAPI()
-#
-# app.include_router(datas.router)
 
-# CRUD operations
+origins = [
+    "http://localhost",
+    "http://localhost:8080",
+    "*",
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 @app.post("/genders/", response_model=Gender)
 def create_gender(gender: Gender, session: Session = Depends(get_session)):
@@ -127,12 +138,14 @@ def read_brigades(session: Session = Depends(get_session)):
     brigades = session.exec(select(Brigade)).all()
     return brigades
 
+
 @app.post("/shiftrates/", response_model=ShiftRate)
 def create_shift_rate(shift_rate: ShiftRate, session: Session = Depends(get_session)):
     session.add(shift_rate)
     session.commit()
     session.refresh(shift_rate)
     return shift_rate
+
 
 @app.post("/calls/", response_model=Call)
 def create_call(call: Call, session: Session = Depends(get_session)):
@@ -175,6 +188,7 @@ def read_dispatches(session: Session = Depends(get_session)):
     dispatches = session.exec(select(Dispatch)).all()
     return dispatches
 
+
 @app.get("/dispatches/{dispatch_date}", response_model=List[dict])
 def get_dispatches_by_date(dispatch_date: date, session: Session = Depends(get_session)):
     result = session.exec(
@@ -198,6 +212,7 @@ def get_dispatches_by_date(dispatch_date: date, session: Session = Depends(get_s
         dispatches.append(dispatch_info)
 
     return dispatches
+
 
 @app.get("/longest_dispatch/{dispatch_date}", response_model=Optional[dict])
 def get_longest_dispatch_by_date(dispatch_date: date, session: Session = Depends(get_session)):
@@ -226,12 +241,14 @@ def get_longest_dispatch_by_date(dispatch_date: date, session: Session = Depends
         return longest_dispatch
     return None
 
+
 @app.get("/brigade_employees/{brigade_id}/{dispatch_date}", response_model=List[dict])
 def get_brigade_employees_by_date(brigade_id: int, dispatch_date: date, session: Session = Depends(get_session)):
     employees = session.exec(
         select(Employee, EmployeePosition)
         .join(EmployeePosition, Employee.position_id == EmployeePosition.id)
         .where(
+            Employee.brigade_id == brigade_id,
             Employee.start_date <= dispatch_date,
             (Employee.end_date.is_(None) | (Employee.end_date >= dispatch_date))
         )
@@ -244,8 +261,7 @@ def get_brigade_employees_by_date(brigade_id: int, dispatch_date: date, session:
     for employee, position in employees:
         response.append({
             "employee_number": employee.employee_number,
-            "first_name": employee.first_name,
-            "last_name": employee.last_name,
+            "full_name": f"{employee.last_name} {employee.first_name} {employee.middle_name or ''}".strip(),
             "position": position.position_name
         })
 

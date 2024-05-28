@@ -38,6 +38,7 @@ class Employee(SQLModel, table=True):
     start_date: datetime
     end_date: Optional[datetime]
     rate_id: Optional[int] = Field(default=None, foreign_key="shiftrate.id")
+    brigade_id: Optional[int] = Field(default=None, foreign_key="brigade.id")
 
 class InternalOrder(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
